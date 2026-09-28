@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referer Lab — see what the browser really sends</title>
+<meta name="description" content="A teaching lab for the HTTP Referer header: edit a target and a referer value, and watch what the browser actually transmits.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --slate:#EBEEF1;
+    --panel:#FFFFFF;
+    --ink:#171A1F;
+    --ink-soft:#565E68;
+    --line:#D3D9DF;
+    --line-strong:#B7C0C8;
+    --forged:#B9651A;      /* amber: the value the student tries to fake */
+    --forged-bg:#FBF0E3;
+    --real:#136B76;        /* teal: what actually got sent */
+    --real-bg:#E4F1F2;
+    --blocked:#B23A32;     /* red: forge blocked */
+    --blocked-bg:#FBE9E7;
+    --sent:#2F7D45;        /* green: request went through */
+    --sent-bg:#E7F3EA;
+    --radius:6px;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html:focus-within{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html:focus-within{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+  body{
+    margin:0;background:var(--slate);color:var(--ink);
+    font-family:var(--sans);line-height:1.5;
+    font-size:16px;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--real)}
+  .wrap{max-width:1020px;margin:0 auto;padding:28px 20px 80px}
+
+  /* ---- header ---- */
+  header.top{border:1px solid var(--line-strong);background:var(--panel);border-radius:var(--radius);overflow:hidden}
+  .top .bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:#F7F9FA;font-family:var(--mono);font-size:12.5px;color:var(--ink-soft)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--line-strong)}
+  .dot.a{background:#E0605A}.dot.b{background:#E4B04A}.dot.c{background:#5FB07A}
+  .bar .path{margin-left:6px}
+  .top .body{padding:26px 24px 24px}
+  h1{font-family:var(--mono);font-weight:600;letter-spacing:-.01em;margin:0 0 6px;font-size:clamp(26px,4.5vw,38px)}
+  h1 .head{color:var(--forged)}
+  .lede{margin:0;max-width:66ch;color:var(--ink-soft);font-size:16.5px}
+  .honesty{margin:20px 0 0;padding:14px 16px;border:1px solid var(--forged);background:var(--forged-bg);border-radius:var(--radius);font-size:14.5px}
+  .honesty strong{color:var(--forged)}
+
+  /* ---- panels ---- */
+  section.card{margin-top:22px;border:1px solid var(--line-strong);background:var(--panel);border-radius:var(--radius)}
+  .card > h2{margin:0;padding:14px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .step{width:22px;height:22px;flex:none;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:12px}
+  .card .pad{padding:20px}
+  p.note{margin:0 0 16px;color:var(--ink-soft);font-size:14.5px;max-width:70ch}
+  p.note:last-child{margin-bottom:0}
+
+  /* ---- form ---- */
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-family:var(--mono);font-size:12.5px;font-weight:500;margin-bottom:6px;color:var(--ink)}
+  label .tag{color:var(--forged)}
+  input[type=url],input[type=text],select{
+    width:100%;font-family:var(--mono);font-size:14px;color:var(--ink);
+    padding:11px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:#FDFDFD
+  }
+  input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2.5px solid var(--real);outline-offset:2px}
+  .referer-field input{border-color:var(--forged);background:var(--forged-bg)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:620px){.row{grid-template-columns:1fr}}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:5px;font-family:var(--sans)}
+
+  /* ---- buttons ---- */
+  .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  button{font-family:var(--mono);font-size:13.5px;font-weight:500;cursor:pointer;border-radius:var(--radius);padding:11px 16px;border:1px solid var(--ink);background:var(--ink);color:#fff;transition:opacity .12s}
+  button:hover{opacity:.86}
+  button.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+  button.ghost:hover{background:#F1F4F6;opacity:1}
+  button:disabled{opacity:.45;cursor:progress}
+
+  /* ---- raw request preview ---- */
+  pre.http{margin:0;font-family:var(--mono);font-size:13px;line-height:1.7;background:#1B1F26;color:#D7DEE6;padding:16px 18px;border-radius:var(--radius);overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+  pre.http .m{color:#7FD1B9}
+  pre.http .h{color:#9BB7D4}
+  pre.http .forged{color:#E7A94E;font-weight:600}
+  pre.http .muted{color:#6B7681}
+
+  /* ---- result / verdict ---- */
+  .verdict{border-radius:var(--radius);padding:16px 18px;font-size:14.5px;border:1px solid;margin-bottom:14px}
+  .verdict.wait{border-color:var(--line-strong);background:#F7F9FA;color:var(--ink-soft)}
+  .verdict.ok{border-color:var(--sent);background:var(--sent-bg)}
+  .verdict.blocked{border-color:var(--blocked);background:var(--blocked-bg)}
+  .verdict.err{border-color:var(--blocked);background:var(--blocked-bg)}
+  .verdict h3{margin:0 0 6px;font-family:var(--mono);font-size:14px}
+  .verdict.ok h3{color:var(--sent)}
+  .verdict.blocked h3{color:var(--blocked)}
+  .verdict.err h3{color:var(--blocked)}
+  .kv{font-family:var(--mono);font-size:13.5px;margin-top:4px;word-break:break-all}
+  .kv b{color:var(--forged)}
+  .kv .got{color:var(--real);font-weight:600}
+
+  /* ---- comparison table ---- */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);vertical-align:top}
+  th{font-size:12px;color:var(--ink-soft);border-bottom:2px solid var(--line-strong)}
+  td.val{color:var(--real);word-break:break-all}
+  td.none{color:var(--blocked)}
+  tr td:first-child{color:var(--ink)}
+
+  /* ---- code blocks with copy ---- */
+  .code{position:relative;margin-bottom:14px}
+  .code:last-child{margin-bottom:0}
+  .code pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;background:#1B1F26;color:#D7DEE6;padding:14px 84px 14px 16px;border-radius:var(--radius);overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+  .code .lbl{position:absolute;top:-9px;left:12px;font-family:var(--mono);font-size:11px;background:var(--panel);border:1px solid var(--line-strong);padding:1px 8px;border-radius:20px;color:var(--ink-soft)}
+  .copy{position:absolute;top:10px;right:10px;padding:6px 12px;font-size:12px;background:#2C333C;border-color:#3C444E;color:#D7DEE6}
+  .copy:hover{background:#39424D}
+
+  /* ---- iframe ---- */
+  .frameshell{border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:#F7F9FA}
+  .frameshell .fbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-soft);background:#EFF2F4}
+  iframe{width:100%;height:340px;border:0;background:#fff;display:block}
+
+  /* ---- teaching notes ---- */
+  .lesson dt{font-family:var(--mono);font-weight:600;font-size:14px;margin-top:16px}
+  .lesson dt:first-child{margin-top:0}
+  .lesson dd{margin:5px 0 0;color:var(--ink-soft);font-size:14.5px;max-width:74ch}
+  .lesson dd code{font-family:var(--mono);font-size:13px;background:#EDF0F2;padding:1px 5px;border-radius:4px;color:var(--ink)}
+
+  footer{margin-top:30px;font-family:var(--mono);font-size:12px;color:var(--ink-soft);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="bar"><span class="dot a"></span><span class="dot b"></span><span class="dot c"></span><span class="path">GET /referer-lab</span></div>
+    <div class="body">
+      <h1>What does the <span class="head">Referer</span> header really do?</h1>
+      <p class="lede">Every request your browser makes can carry a <span style="font-family:var(--mono)">Referer</span> header naming the page you came from. Edit a target and a referer below, send a real request, and see exactly what the server receives.</p>
+      <div class="honesty">
+        <strong>Read this first.</strong> A page like this — running in a browser — <strong>cannot forge the Referer to any value you like.</strong> Browsers block JavaScript from doing that on purpose. This lab shows you the real behaviour, then shows you the terminal tools that <em>can</em> forge it. That gap is the whole lesson: <strong>never trust the Referer header to prove who's asking.</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- STEP 1: build -->
+  <section class="card">
+    <h2><span class="step">1</span> Build the request</h2>
+    <div class="pad">
+      <div class="field">
+        <label for="target">Target URL <span class="tag">// the page you want to request</span></label>
+        <input id="target" type="url" value="https://httpbin.org/get" autocomplete="off" spellcheck="false">
+        <p class="hint">Use a URL that echoes back request headers so you can see the result. <code style="font-family:var(--mono)">https://httpbin.org/get</code> works well.</p>
+      </div>
+      <div class="field referer-field">
+        <label for="referer">Referer value <span class="tag">// the page you want to pretend you came from</span></label>
+        <input id="referer" type="text" value="https://internal.exeter.ac.uk/admin" autocomplete="off" spellcheck="false">
+        <p class="hint">This is the value a student would <em>try</em> to fake. Watch whether it actually arrives.</p>
+      </div>
+      <div class="field">
+        <label for="policy">Referrer-Policy <span class="tag">// what the browser is allowed to send</span></label>
+        <select id="policy">
+          <option value="no-referrer">no-referrer — send nothing</option>
+          <option value="origin">origin — send only the origin (scheme + host)</option>
+          <option value="strict-origin-when-cross-origin" selected>strict-origin-when-cross-origin — browser default</option>
+          <option value="unsafe-url">unsafe-url — send the full URL</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Request the browser will attempt</label>
+        <pre class="http" id="preview"></pre>
+      </div>
+      <p class="hint" style="margin-top:0">The <span style="color:var(--forged);font-weight:600">amber</span> line is what you're asking for. Whether the server sees it is another matter.</p>
+    </div>
+  </section>
+
+  <!-- STEP 2: send -->
+  <section class="card">
+    <h2><span class="step">2</span> Send it and read the truth</h2>
+    <div class="pad">
+      <p class="note">This sends a real request from your browser to the target, then reads back the <span style="font-family:var(--mono)">Referer</span> the server actually received.</p>
+      <div class="verdict wait" id="verdict"><h3>No request sent yet</h3><div>Press <b style="color:inherit">Send test request</b> to see what arrives.</div></div>
+      <div class="btns">
+        <button id="send">Send test request</button>
+        <button id="compare" class="ghost">Compare all policies</button>
+      </div>
+      <div id="table-wrap" style="margin-top:18px;display:none">
+        <table>
+          <thead><tr><th>Referrer-Policy</th><th>Referer the server received</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <p class="hint">Notice the server never receives the amber value you typed — only what the browser decided to send about <em>this</em> page.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: load target -->
+  <section class="card">
+    <h2><span class="step">3</span> Load the target page</h2>
+    <div class="pad">
+      <p class="note">Open the target in a frame using the chosen policy. Many real sites refuse to load in a frame (<span style="font-family:var(--mono)">X-Frame-Options</span>) — that refusal is itself a defensive control worth pointing out.</p>
+      <div class="btns" style="margin-top:0;margin-bottom:16px">
+        <button id="load" class="ghost">Load target in frame</button>
+        <button id="popup" class="ghost">Open in new tab</button>
+      </div>
+      <div class="frameshell">
+        <div class="fbar" id="fbar">frame: empty</div>
+        <iframe id="frame" title="Target page preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4: real tools -->
+  <section class="card">
+    <h2><span class="step">4</span> How it's actually forged</h2>
+    <div class="pad">
+      <p class="note">Referer spoofing is real — it just doesn't happen in a sandboxed browser tab. It happens in tools where the person writing the request controls every header. Run these in a terminal and the target genuinely receives your faked Referer.</p>
+      <div class="code">
+        <span class="lbl">curl</span>
+        <button class="copy" data-copy="curl">Copy</button>
+        <pre id="cmd-curl"></pre>
+      </div>
+      <div class="code">
+        <span class="lbl">wget</span>
+        <button class="copy" data-copy="wget">Copy</button>
+        <pre id="cmd-wget"></pre>
+      </div>
+      <p class="note">Other routes to the same result: an intercepting proxy (Burp Suite, mitmproxy), a header-rewriting browser extension, or a server-side script that relays the request. The common factor is that the attacker owns the request — so the header proves nothing about them.</p>
+    </div>
+  </section>
+
+  <!-- STEP 5: lesson -->
+  <section class="card">
+    <h2><span class="step">5</span> Why this matters — Unit 2 notes</h2>
+    <div class="pad">
+      <dl class="lesson">
+        <dt>The Referer is a hint, not an identity.</dt>
+        <dd>It's set by the client, and any client that isn't a locked-down browser tab can set it to anything. Treat it as trivia about traffic, never as proof of origin.</dd>
+        <dt>Referer-based access control is broken by design.</dt>
+        <dd>"Only allow requests that came from our own site" fails the moment someone uses <code>curl -e</code>. Real controls use secrets the attacker can't guess: session tokens, signed requests, anti-CSRF tokens tied to the session.</dd>
+        <dt>Browsers protect the header on purpose.</dt>
+        <dd>The reason this lab can't fake the value is the same reason the web mostly works: JavaScript on one site can't impersonate a request from another. That boundary (the same-origin policy) is doing real work.</dd>
+        <dt>Stripping the referer is legitimate — and easy.</dt>
+        <dd>Setting <code>Referrer-Policy: no-referrer</code> keeps your users' internal URLs out of other people's server logs. That's a privacy control you <em>can</em> apply, unlike forging.</dd>
+        <dt>Discussion prompt.</dt>
+        <dd>A site checks the Referer to decide whether to show a "members only" page. Describe two ways an attacker defeats it, and one control that actually works instead.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <footer>Referer Lab · a teaching tool · requests are sent from your own browser, nothing is logged here</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s){return document.querySelector(s)};
+  var targetEl=$("#target"), refEl=$("#referer"), polEl=$("#policy"),
+      preview=$("#preview"), verdict=$("#verdict"),
+      sendBtn=$("#send"), cmpBtn=$("#compare"),
+      tableWrap=$("#table-wrap"), tbody=$("#tbody"),
+      curlEl=$("#cmd-curl"), wgetEl=$("#cmd-wget"),
+      frame=$("#frame"), fbar=$("#fbar");
+
+  function esc(s){return String(s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+
+  function hostOf(u){try{return new URL(u).host}catch(e){return "(invalid URL)"}}
+  function pathOf(u){try{var x=new URL(u);return x.pathname+x.search||"/"}catch(e){return "/"}}
+
+  // ---- live request preview ----
+  function renderPreview(){
+    var t=targetEl.value.trim(), r=refEl.value.trim(), p=polEl.value;
+    var host=hostOf(t), path=pathOf(t);
+    var lines=[];
+    lines.push('<span class="m">GET</span> '+esc(path)+' <span class="muted">HTTP/1.1</span>');
+    lines.push('<span class="h">Host:</span> '+esc(host));
+    lines.push('<span class="h">Referrer-Policy applied:</span> <span class="muted">'+esc(p)+'</span>');
+    if(r){ lines.push('<span class="h">Referer:</span> <span class="forged">'+esc(r)+'</span>  <span class="muted">&larr; you are asking for this</span>'); }
+    else { lines.push('<span class="muted">(no Referer requested)</span>'); }
+    preview.innerHTML=lines.join("\n");
+    renderCommands();
+  }
+
+  // ---- real terminal commands ----
+  function shq(s){return "'"+String(s).replace(/'/g,"'\\''")+"'"}
+  function renderCommands(){
+    var t=targetEl.value.trim()||"https://example.com", r=refEl.value.trim()||"https://spoofed.example";
+    curlEl.textContent="curl -e "+shq(r)+" "+shq(t);
+    wgetEl.textContent="wget --referer="+shq(r)+" "+shq(t)+" -O -";
+  }
+
+  // ---- send one test request ----
+  function fetchReferer(policy, cb){
+    var t=targetEl.value.trim(), r=refEl.value.trim();
+    var opts={method:"GET", referrerPolicy:policy, cache:"no-store"};
+    if(r){ opts.referrer=r; } // browser will ignore a cross-origin value
+    var failed=false;
+    try{
+      fetch(t, opts).then(function(res){return res.json();}).then(function(data){
+        var got=(data && data.headers && (data.headers.Referer||data.headers.referer));
+        cb(null, got);
+      }).catch(function(err){ cb(err); });
+    }catch(err){ cb(err); }
+  }
+
+  sendBtn.addEventListener("click", function(){
+    var t=targetEl.value.trim(), r=refEl.value.trim(), p=polEl.value;
+    if(!/^https?:\/\//i.test(t)){ showErr("That target isn't a valid http(s) URL."); return; }
+    sendBtn.disabled=true;
+    setVerdict("wait","Sending…","Contacting "+esc(hostOf(t))+" …");
+    fetchReferer(p, function(err, got){
+      sendBtn.disabled=false;
+      if(err){
+        showErr("The request couldn't complete — the target may block cross-site requests (no CORS) or be offline. Try https://httpbin.org/get, which echoes headers back.");
+        return;
+      }
+      var asked=r||"(nothing)";
+      var received=(got===undefined||got===null||got==="")?null:got;
+      var matched = received && r && received===r;
+      var body='<div class="kv">You asked to send &nbsp;<b>'+esc(asked)+'</b></div>'+
+               '<div class="kv">The server received &nbsp;<span class="got">'+(received?esc(received):"no Referer at all")+'</span></div>';
+      if(matched){
+        // essentially only possible if referer was same-origin as this page
+        setVerdict("ok","Request sent — and the value matched",
+          body+'<div class="kv" style="margin-top:8px;color:var(--ink-soft)">That only works when the referer is same-origin as this lab. The browser still won\'t let you fake an unrelated site.</div>');
+      } else {
+        setVerdict("blocked","Request sent — but the forge was blocked",
+          body+'<div class="kv" style="margin-top:8px;color:var(--ink-soft)">The browser sent its own value for <em>this</em> page (per the '+esc(p)+' policy), not the amber value you typed. That\'s the browser protecting the header.</div>');
+      }
+    });
+  });
+
+  function setVerdict(kind,title,html){
+    verdict.className="verdict "+kind;
+    verdict.innerHTML='<h3>'+title+'</h3><div>'+html+'</div>';
+  }
+  function showErr(msg){ setVerdict("err","Couldn't send that request", msg); }
+
+  // ---- compare policies ----
+  cmpBtn.addEventListener("click", function(){
+    var t=targetEl.value.trim();
+    if(!/^https?:\/\//i.test(t)){ showErr("That target isn't a valid http(s) URL."); return; }
+    var policies=["no-referrer","origin","strict-origin-when-cross-origin","unsafe-url"];
+    tableWrap.style.display="block";
+    tbody.innerHTML="";
+    cmpBtn.disabled=true; cmpBtn.textContent="Testing…";
+    var pending=policies.length;
+    policies.forEach(function(p){
+      var tr=document.createElement("tr");
+      tr.innerHTML='<td>'+p+'</td><td class="val" data-p="'+p+'">…</td>';
+      tbody.appendChild(tr);
+      fetchReferer(p, function(err, got){
+        var cell=tbody.querySelector('[data-p="'+p+'"]');
+        if(err){ cell.textContent="request failed"; cell.className="none"; }
+        else if(got){ cell.textContent=got; cell.className="val"; }
+        else { cell.textContent="(none sent)"; cell.className="none"; }
+        if(--pending===0){ cmpBtn.disabled=false; cmpBtn.textContent="Compare all policies"; }
+      });
+    });
+  });
+
+  // ---- load target ----
+  $("#load").addEventListener("click", function(){
+    var t=targetEl.value.trim();
+    if(!/^https?:\/\//i.test(t)){ fbar.textContent="frame: needs a valid http(s) URL"; return; }
+    frame.setAttribute("referrerpolicy", polEl.value);
+    fbar.textContent="frame: "+hostOf(t)+"  ·  referrerpolicy="+polEl.value;
+    frame.src=t;
+  });
+  $("#popup").addEventListener("click", function(){
+    var t=targetEl.value.trim();
+    if(!/^https?:\/\//i.test(t)) return;
+    var a=document.createElement("a");
+    a.href=t; a.target="_blank"; a.rel="noopener"; a.referrerPolicy=polEl.value;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ---- copy buttons ----
+  document.querySelectorAll(".copy").forEach(function(b){
+    b.addEventListener("click", function(){
+      var el=b.getAttribute("data-copy")==="curl"?curlEl:wgetEl;
+      navigator.clipboard.writeText(el.textContent).then(function(){
+        var old=b.textContent; b.textContent="Copied"; setTimeout(function(){b.textContent=old;},1200);
+      }).catch(function(){ b.textContent="Copy failed"; });
+    });
+  });
+
+  ["input","change"].forEach(function(ev){
+    targetEl.addEventListener(ev, renderPreview);
+    refEl.addEventListener(ev, renderPreview);
+    polEl.addEventListener(ev, renderPreview);
+  });
+  renderPreview();
+})();
+</script>
+</body>
+</html>
