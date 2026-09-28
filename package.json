@@ -1,0 +1,16 @@
+{
+  "name": "natas-referer-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Teaching proxy that forges the Referer header server-side to solve natas4 and similar natas levels. Locked to the natas wargame hosts.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

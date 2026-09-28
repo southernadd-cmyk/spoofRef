@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>natas Referer proxy — forge it server-side</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --slate:#EBEEF1;--panel:#FFFFFF;--ink:#171A1F;--ink-soft:#565E68;
+    --line:#D3D9DF;--line-strong:#B7C0C8;
+    --forged:#B9651A;--forged-bg:#FBF0E3;--real:#136B76;--real-bg:#E4F1F2;
+    --blocked:#B23A32;--blocked-bg:#FBE9E7;--sent:#2F7D45;--sent-bg:#E7F3EA;
+    --radius:6px;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  body{margin:0;background:var(--slate);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:16px;-webkit-font-smoothing:antialiased}
+  a{color:var(--real)}
+  .wrap{max-width:940px;margin:0 auto;padding:28px 20px 80px}
+  header.top{border:1px solid var(--line-strong);background:var(--panel);border-radius:var(--radius);overflow:hidden}
+  .top .bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:#F7F9FA;font-family:var(--mono);font-size:12.5px;color:var(--ink-soft)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.a{background:#E0605A}.dot.b{background:#E4B04A}.dot.c{background:#5FB07A}
+  .top .body{padding:26px 24px 24px}
+  h1{font-family:var(--mono);font-weight:600;letter-spacing:-.01em;margin:0 0 6px;font-size:clamp(24px,4.2vw,34px)}
+  h1 .head{color:var(--forged)}
+  .lede{margin:0;max-width:66ch;color:var(--ink-soft);font-size:16px}
+  .honesty{margin:20px 0 0;padding:14px 16px;border:1px solid var(--real);background:var(--real-bg);border-radius:var(--radius);font-size:14.5px}
+  .honesty strong{color:var(--real)}
+  section.card{margin-top:22px;border:1px solid var(--line-strong);background:var(--panel);border-radius:var(--radius)}
+  .card>h2{margin:0;padding:14px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:14px;font-weight:600}
+  .card .pad{padding:20px}
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-family:var(--mono);font-size:12.5px;font-weight:500;margin-bottom:6px}
+  label .tag{color:var(--ink-soft)}
+  input{width:100%;font-family:var(--mono);font-size:14px;color:var(--ink);padding:11px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:#FDFDFD}
+  input:focus,button:focus-visible{outline:2.5px solid var(--real);outline-offset:2px}
+  .referer-field input{border-color:var(--forged);background:var(--forged-bg)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:620px){.row{grid-template-columns:1fr}}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:5px}
+  .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  button{font-family:var(--mono);font-size:13.5px;font-weight:500;cursor:pointer;border-radius:var(--radius);padding:11px 16px;border:1px solid var(--ink);background:var(--ink);color:#fff}
+  button:hover{opacity:.86}
+  button:disabled{opacity:.45;cursor:progress}
+  .verdict{border-radius:var(--radius);padding:16px 18px;font-size:14.5px;border:1px solid;margin-bottom:14px}
+  .verdict.wait{border-color:var(--line-strong);background:#F7F9FA;color:var(--ink-soft)}
+  .verdict.ok{border-color:var(--sent);background:var(--sent-bg)}
+  .verdict.err{border-color:var(--blocked);background:var(--blocked-bg)}
+  .verdict h3{margin:0 0 6px;font-family:var(--mono);font-size:14px}
+  .verdict.ok h3{color:var(--sent)}.verdict.err h3{color:var(--blocked)}
+  .pw{font-family:var(--mono);font-weight:600;color:var(--sent);background:var(--sent-bg);border:1px solid var(--sent);padding:2px 8px;border-radius:4px;word-break:break-all}
+  pre.out{margin:14px 0 0;font-family:var(--mono);font-size:12.5px;line-height:1.6;background:#1B1F26;color:#D7DEE6;padding:14px 16px;border-radius:var(--radius);max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .kv{font-family:var(--mono);font-size:13.5px;margin-top:4px;word-break:break-all}
+  .kv b{color:var(--forged)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="bar"><span class="dot a"></span><span class="dot b"></span><span class="dot c"></span></div>
+    <div class="body">
+      <h1>Forge the <span class="head">Referer</span> — server-side</h1>
+      <p class="lede">The browser wouldn't let a webpage fake this header. So this page hands the job to a small server, which makes the request with whatever Referer you type and shows you the reply.</p>
+      <div class="honesty"><strong>Why this works and the browser lab didn't.</strong> The request now leaves from a <em>server</em>, not your browser tab. Servers aren't bound by the browser's forbidden-header rule or by CORS, so the forged Referer arrives intact — and the response comes back readable. Use Natas lab passwords only: your entries pass through this teaching server.</div>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>Request</h2>
+    <div class="pad">
+      <div class="field">
+        <label for="target">Target URL <span class="tag">// locked to *.natas.labs.overthewire.org</span></label>
+        <input id="target" type="url" value="http://natas4.natas.labs.overthewire.org/" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="field referer-field">
+        <label for="referer">Referer to send <span class="tag">// the page natas4 wants to see</span></label>
+        <input id="referer" type="text" value="http://natas5.natas.labs.overthewire.org/" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="user">Username</label>
+          <input id="user" type="text" value="natas4" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="pass">Password <span class="tag">// natas4's password</span></label>
+          <input id="pass" type="password" value="" spellcheck="false" autocomplete="off" placeholder="paste the natas4 password">
+        </div>
+      </div>
+      <div class="btns"><button id="send">Send request</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Response</h2>
+    <div class="pad">
+      <div class="verdict wait" id="verdict"><h3>Nothing sent yet</h3><div>Fill in the natas4 password and press <b style="color:inherit">Send request</b>.</div></div>
+      <div id="result"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s){return document.querySelector(s)};
+  var send=$("#send"), verdict=$("#verdict"), result=$("#result");
+
+  function esc(s){return String(s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+  function setV(kind,title,html){verdict.className="verdict "+kind;verdict.innerHTML='<h3>'+title+'</h3><div>'+html+'</div>'}
+
+  send.addEventListener("click", function(){
+    var payload={
+      target:$("#target").value.trim(),
+      referer:$("#referer").value.trim(),
+      username:$("#user").value.trim(),
+      password:$("#pass").value
+    };
+    send.disabled=true; result.innerHTML="";
+    setV("wait","Sending…","Asking the server to fetch "+esc(payload.target)+" …");
+    fetch("/fetch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+      .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})})
+      .then(function(res){
+        send.disabled=false;
+        if(!res.ok){ setV("err","Request refused", esc(res.j.error||"Unknown error")); return; }
+        var j=res.j;
+        var m=j.body && j.body.match(/password for (natas\d+) is ([^\s<]+)/i);
+        if(m){
+          setV("ok","Got it — the forged Referer was accepted",
+            '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
+            '<div class="kv" style="margin-top:8px">Password for '+esc(m[1])+': <span class="pw">'+esc(m[2])+'</span></div>');
+        } else {
+          setV("ok","Response received (HTTP "+esc(j.status)+")",
+            '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
+            '<div class="kv" style="margin-top:8px;color:var(--ink-soft)">No password line found — check the natas4 password, or read the raw response below.</div>');
+        }
+        result.innerHTML='<pre class="out">'+esc(j.body||"(empty response)")+'</pre>';
+      })
+      .catch(function(err){
+        send.disabled=false;
+        setV("err","Couldn't reach the proxy", esc(err.message||String(err)));
+      });
+  });
+})();
+</script>
+</body>
+</html>
