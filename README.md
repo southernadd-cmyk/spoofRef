@@ -2,7 +2,9 @@
 
 A small teaching tool for the OverTheWire Natas 4 Referer challenge. The browser sends a POST to this Node server; the server requests Natas with the entered `Referer` header and returns the response. The target is editable within `natas.labs.overthewire.org` and its subdomains. The Referer value is editable. Redirects are not followed, so requests cannot bounce to another host.
 
-The repository also contains an earlier static browser lab in `index.html` and `docs/`. Those files can stay on GitHub Pages. Railway serves `public/index.html` through `server.js`.
+**Live server tool:** https://spoof-ref-production.up.railway.app/
+
+The repository's root `index.html` is an earlier browser-only Referer lesson and remains on GitHub Pages. The `docs/` folder is an older frontend draft that expects a different request service and is not used by this app. Railway serves `public/index.html` through `server.js`.
 
 ## Run locally
 
