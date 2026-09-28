@@ -86,14 +86,15 @@
       </div>
       <div class="row">
         <div class="field">
-          <label for="user">Username</label>
+          <label for="user">Username <span class="tag">// the level you are opening</span></label>
           <input id="user" type="text" value="natas4" spellcheck="false" autocomplete="off">
         </div>
         <div class="field">
-          <label for="pass">Password <span class="tag">// natas4's password</span></label>
+          <label for="pass">Password <span class="tag">// obtained from the previous level</span></label>
           <input id="pass" type="password" value="" spellcheck="false" autocomplete="off" placeholder="paste the natas4 password">
         </div>
       </div>
+      <div class="hint">For natas4, use the password you found on natas3. The natas5 password is what this challenge asks you to discover.</div>
       <div class="btns"><button id="send">Send request</button></div>
     </div>
   </section>
@@ -122,8 +123,14 @@
       target:$("#target").value.trim(),
       referer:$("#referer").value.trim(),
       username:$("#user").value.trim(),
-      password:$("#pass").value
+      password:$("#pass").value.trim()
     };
+    if(!payload.username || !payload.password){
+      result.innerHTML="";
+      setV("err","Natas login required","Enter the username for the target level and its password from the previous level. For natas4, the username is <b>natas4</b> and the password comes from natas3. The Referer cannot replace the login.");
+      if(!payload.password) $("#pass").focus();
+      return;
+    }
     send.disabled=true; result.innerHTML="";
     setV("wait","Sending…","Asking the server to fetch "+esc(payload.target)+" …");
     fetch("/fetch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
@@ -133,14 +140,22 @@
         if(!res.ok){ setV("err","Request refused", esc(res.j.error||"Unknown error")); return; }
         var j=res.j;
         var m=j.body && j.body.match(/password for (natas\d+) is ([^\s<]+)/i);
-        if(m){
+        if(j.status===401){
+          setV("err","Natas rejected the login (HTTP 401)",
+            '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
+            '<div class="kv" style="margin-top:8px">Check the username and password for the target level. For natas4, use the password found on natas3. Login must succeed before Natas checks the Referer.</div>');
+        } else if(j.status>=400){
+          setV("err","Target returned HTTP "+esc(j.status),
+            '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
+            '<div class="kv" style="margin-top:8px">Read the response below for details.</div>');
+        } else if(m){
           setV("ok","Got it — the forged Referer was accepted",
             '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
             '<div class="kv" style="margin-top:8px">Password for '+esc(m[1])+': <span class="pw">'+esc(m[2])+'</span></div>');
         } else {
-          setV("ok","Response received (HTTP "+esc(j.status)+")",
+          setV("wait","Response received (HTTP "+esc(j.status)+")",
             '<div class="kv">Sent &nbsp;Referer: <b>'+esc(j.sentReferer||"(none)")+'</b></div>'+
-            '<div class="kv" style="margin-top:8px;color:var(--ink-soft)">No password line found — check the natas4 password, or read the raw response below.</div>');
+            '<div class="kv" style="margin-top:8px;color:var(--ink-soft)">No next-level password found. Check the Referer and read the response below.</div>');
         }
         result.innerHTML='<pre class="out">'+esc(j.body||"(empty response)")+'</pre>';
       })
