@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132c34">
+  <title>SpoofRef — Referer header lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <a href="./" class="brand" aria-label="SpoofRef home"><span class="brand-mark">↗</span> Spoof<span>Ref</span></a>
+      <span class="tag">HTTP HEADER LAB</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div class="eyebrow">A SMALL EXPERIMENT IN WEB TRUST</div>
+        <h1>Where did this <em>request</em> come from?</h1>
+        <p>Choose a webpage, set the address you want it to see in the <code>Referer</code> header, and inspect the response. The two addresses can be on different websites.</p>
+      </section>
+
+      <div class="workspace">
+        <section class="card controls" aria-labelledby="request-title">
+          <div class="card-heading"><span class="step">01</span><h2 id="request-title">Set up a request</h2></div>
+          <form id="request-form">
+            <label for="target">Target webpage <span class="hint">The address to request</span></label>
+            <input id="target" name="target" type="url" placeholder="https://example.com/page" required spellcheck="false" autocomplete="url">
+            <label for="referer">Referer page <span class="hint">The address sent in the HTTP header</span></label>
+            <input id="referer" name="referer" type="url" placeholder="https://example.org/another-page" required spellcheck="false" autocomplete="off">
+            <div class="actions">
+              <button type="submit" id="send">Send request <span aria-hidden="true">↗</span></button>
+              <button type="button" id="demo" class="secondary">Try the header test</button>
+            </div>
+            <p class="form-error" id="error" role="alert" hidden></p>
+          </form>
+          <div class="how">
+            <h3>What happens?</h3>
+            <ol>
+              <li>The request service fetches the target with your chosen <code>Referer</code>.</li>
+              <li>You see the HTTP result and a safe, read-only preview.</li>
+              <li>Try changing just the Referer. Does the response change?</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="card result" aria-labelledby="result-title">
+          <div class="card-heading"><span class="step">02</span><h2 id="result-title">Inspect the response</h2></div>
+          <div id="empty" class="empty-state"><div class="empty-icon" aria-hidden="true">⇢</div><strong>Ready when you are.</strong><p>Send a request to see what the target returns.</p></div>
+          <div id="output" hidden>
+            <div class="status-line"><span id="status" class="status-badge"></span><span id="content-type" class="content-type"></span></div>
+            <dl class="facts">
+              <div><dt>Referer sent</dt><dd id="sent"></dd></div>
+              <div><dt>Final address</dt><dd id="final"></dd></div>
+              <div><dt>Route</dt><dd id="route"></dd></div>
+            </dl>
+            <p id="notice" class="notice" hidden></p>
+            <div class="tabs" role="tablist" aria-label="Response view">
+              <button class="tab active" type="button" role="tab" id="preview-tab" aria-controls="preview-panel" aria-selected="true">Page preview</button>
+              <button class="tab" type="button" role="tab" id="source-tab" aria-controls="source-panel" aria-selected="false">Response source</button>
+            </div>
+            <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab"><iframe id="preview" title="Read-only preview of the target response" sandbox="" referrerpolicy="no-referrer"></iframe></div>
+            <div id="source-panel" role="tabpanel" aria-labelledby="source-tab" hidden><pre id="source"></pre></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="lesson-note"><span aria-hidden="true">✳</span><p><strong>Think about it.</strong> The <code>Referer</code> header can be supplied by software. Would you use it on its own to decide whether a visitor is authorised?</p></aside>
+    </main>
+    <footer><span>SpoofRef / a classroom experiment</span><span>The header name really is spelt <code>Referer</code>.</span></footer>
+  </div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
